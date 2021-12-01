@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq;
 using EPiServer.Commerce.Order;
-using EPiServer.ServiceLocation;
 using Mediachase.Commerce.Customers;
 using Mediachase.Commerce.Orders;
 using Vipps.Helpers;
@@ -11,9 +10,6 @@ namespace Vipps.Extensions
 {
     public static class OrderGroupExtensions
     {
-        private static readonly Injected<IOrderRepository> _orderRepository;
-        private static readonly Injected<IOrderGroupFactory> _orderGroupFactory;
-
         public static VippsPaymentType GetVippsPaymentType(this IOrderGroup orderGroup)
         {
             return PaymentTypeHelper.GetVippsPaymentType(orderGroup);
@@ -40,17 +36,19 @@ namespace Vipps.Extensions
             return orderGroup.Forms.SelectMany(x => x.Payments).FirstOrDefault(predicate);
         }
 
-        public static void AddNote(this IOrderGroup orderGroup, string noteTitle, string noteMessage)
+        public static void AddNote(this IOrderGroup orderGroup, string noteTitle, string noteMessage, IOrderRepository orderRepository, IOrderGroupFactory orderGroupFactory)
         {
-            var note = _orderGroupFactory.Service.CreateOrderNote(orderGroup);
+            var note = orderGroupFactory.CreateOrderNote(orderGroup);
+
             note.CustomerId = CustomerContext.Current.CurrentContactId;
             note.Type = OrderNoteTypes.Custom.ToString();
             note.Title = noteTitle;
             note.Detail = noteMessage;
             note.Created = DateTime.UtcNow;
+
             orderGroup.Notes.Add(note);
 
-            _orderRepository.Service.Save(orderGroup);
+            orderRepository.Save(orderGroup);
         }
     }
 }

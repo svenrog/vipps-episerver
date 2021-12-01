@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using EPiServer.Commerce.Order;
 using EPiServer.Logging;
@@ -18,18 +17,23 @@ namespace Vipps.Services
     public class DefaultVippsOrderProcessor : IVippsOrderProcessor
     {
         private readonly IOrderRepository _orderRepository;
+        private readonly IOrderGroupFactory _orderGroupFactory;
         private readonly IVippsService _vippsService;
         private readonly IVippsOrderSynchronizer _synchronizer;
-        private readonly ILogger _logger = LogManager.GetLogger(typeof(DefaultVippsOrderProcessor));
+        private readonly ILogger _logger;
 
         public DefaultVippsOrderProcessor(
             IOrderRepository orderRepository,
+            IOrderGroupFactory orderGroupFactory,
             IVippsService vippsService,
-            IVippsOrderSynchronizer synchronizer)
+            IVippsOrderSynchronizer synchronizer,
+            ILogger logger = null)
         {
             _orderRepository = orderRepository;
+            _orderGroupFactory = orderGroupFactory;
             _vippsService = vippsService;
             _synchronizer = synchronizer;
+            _logger = logger ?? LogManager.GetLogger(typeof(DefaultVippsOrderProcessor));
         }
 
         public ProcessOrderResponse FetchAndProcessOrderDetails(string orderId, Guid contactId, string marketId, string cartName)
@@ -363,14 +367,14 @@ namespace Vipps.Services
             if (paymentDetails is TransactionLogHistory transactionLogHistory)
             {
                 OrderNoteHelper.AddNoteAndSaveChanges(cart, payment, transactionLogHistory.Operation,
-                    $"Payment with order id: {orderId}. Operation: {transactionLogHistory.Operation} Success: {transactionLogHistory.OperationSuccess}");
+                    $"Payment with order id: {orderId}. Operation: {transactionLogHistory.Operation} Success: {transactionLogHistory.OperationSuccess}", _orderRepository, _orderGroupFactory);
                 return;
             }
 
             if (paymentDetails is TransactionInfo transactionInfo)
             {
                 OrderNoteHelper.AddNoteAndSaveChanges(cart, payment, transactionInfo.Status,
-                    $"Payment with order id: {orderId}. Status: {transactionInfo.Status}");
+                    $"Payment with order id: {orderId}. Status: {transactionInfo.Status}", _orderRepository, _orderGroupFactory);
                 return;
             }
 
@@ -557,18 +561,18 @@ namespace Vipps.Services
             return response;
         }
 
-        private static void EnsurePayment(IPayment payment, ICart cart, IVippsPaymentDetails paymentDetails, IVippsUserDetails details)
+        private void EnsurePayment(IPayment payment, ICart cart, IVippsPaymentDetails paymentDetails, IVippsUserDetails details)
         {
             if (string.IsNullOrEmpty(payment.BillingAddress?.Id))
             {
                 payment.BillingAddress =
                     AddressHelper.UserDetailsAndShippingDetailsToOrderAddress(details.UserDetails,
-                        details.ShippingDetails, cart);
+                        details.ShippingDetails, cart, _orderGroupFactory);
                 payment.Amount = paymentDetails.Amount.FormatAmountFromVipps();
             }
         }
 
-        private static void EnsureShipping(ICart cart, IVippsUserDetails details)
+        private void EnsureShipping(ICart cart, IVippsUserDetails details)
         {
             var shipment = cart.GetFirstShipment();
             if (details?.ShippingDetails?.ShippingMethodId != null &&
@@ -584,7 +588,7 @@ namespace Vipps.Services
             {
                 shipment.ShippingAddress =
                     AddressHelper.UserDetailsAndShippingDetailsToOrderAddress(details.UserDetails,
-                        details.ShippingDetails, cart);
+                        details.ShippingDetails, cart, _orderGroupFactory);
             }
         }
     }

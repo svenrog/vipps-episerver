@@ -7,11 +7,13 @@ namespace Vipps.Helpers
 {
     public static class AddressHelper
     {
-        private static Injected<IOrderGroupFactory> _orderGroupFactory; 
-        public static IOrderAddress ShippingRequestToOrderAddress(ShippingRequest shippingRequest, ICart cart)
+        public static IOrderAddress ShippingRequestToOrderAddress(ShippingRequest shippingRequest, ICart cart, IOrderGroupFactory orderGroupFactory = null)
         {
+            if (orderGroupFactory == null)
+                orderGroupFactory = ServiceLocator.Current.GetInstance<IOrderGroupFactory>();
+
             var addressId = $"{shippingRequest.AddressLine1}{shippingRequest.AddressLine2}{shippingRequest.City}";
-            var orderAddress = cart.CreateOrderAddress(_orderGroupFactory.Service, addressId);
+            var orderAddress = cart.CreateOrderAddress(orderGroupFactory, addressId);
 
             orderAddress.City = shippingRequest.City;
             orderAddress.CountryCode = "NOR";
@@ -23,10 +25,13 @@ namespace Vipps.Helpers
             return orderAddress;
         }
 
-        public static IOrderAddress UserDetailsAndShippingDetailsToOrderAddress(UserDetails userDetails, ShippingDetails shippingDetails, ICart cart)
+        public static IOrderAddress UserDetailsAndShippingDetailsToOrderAddress(UserDetails userDetails, ShippingDetails shippingDetails, ICart cart, IOrderGroupFactory orderGroupFactory = null)
         {
+            if (orderGroupFactory == null)
+                orderGroupFactory = ServiceLocator.Current.GetInstance<IOrderGroupFactory>();
+
             var addressId = $"{shippingDetails.Address.AddressLine1}{shippingDetails.Address.AddressLine2}{shippingDetails.Address.City}";
-            var orderAddress = cart.CreateOrderAddress(_orderGroupFactory.Service, addressId);
+            var orderAddress = cart.CreateOrderAddress(orderGroupFactory, addressId);
 
             orderAddress.City = shippingDetails.Address.City;
             orderAddress.CountryCode = "NOR";

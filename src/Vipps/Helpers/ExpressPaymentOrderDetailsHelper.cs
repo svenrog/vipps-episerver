@@ -7,33 +7,39 @@ namespace Vipps.Helpers
 {
     public static class ExpressPaymentOrderDetailsHelper
     {
-        private static Injected<IOrderRepository> _orderRepository;
-
-        public static void EnsureExpressPaymentAndShipping(ICart cart, IPayment payment, DetailsResponse orderDetails)
+        public static void EnsureExpressPaymentAndShipping(ICart cart, IPayment payment, DetailsResponse orderDetails, IOrderRepository orderRepository = null, IOrderGroupFactory orderGroupFactory = null)
         {
+            if (orderRepository == null)
+                orderRepository = ServiceLocator.Current.GetInstance<IOrderRepository>();
+
+            if (orderGroupFactory == null)
+                orderGroupFactory = ServiceLocator.Current.GetInstance<IOrderGroupFactory>();
+
             if (cart.GetFirstShipment().ShippingMethodId == default(Guid) ||
                 cart.GetFirstShipment().ShippingAddress == null ||
                 payment?.BillingAddress == null)
             {
-                EnsureShipping(cart, orderDetails);
-                EnsureBillingAddress(payment, cart, orderDetails);
+                EnsureShipping(cart, orderDetails, orderGroupFactory);
+                EnsureBillingAddress(payment, cart, orderDetails, orderGroupFactory);
 
-                _orderRepository.Service.Save(cart);
+                orderRepository.Save(cart);
             }
         }
 
-        private static void EnsureBillingAddress(IPayment payment, ICart cart, DetailsResponse details)
+        private static void EnsureBillingAddress(IPayment payment, ICart cart, DetailsResponse details, IOrderGroupFactory orderGroupFactory)
         {
             if (payment.BillingAddress == null)
             {
                 payment.BillingAddress =
                     AddressHelper.UserDetailsAndShippingDetailsToOrderAddress(details.UserDetails,
-                        details.ShippingDetails, cart);
+                        details.ShippingDetails, cart, orderGroupFactory);
             }
         }
 
-        private static void EnsureShipping(ICart cart, DetailsResponse details)
+        private static void EnsureShipping(ICart cart, DetailsResponse details, IOrderGroupFactory orderGroupFactory)
         {
+            
+
             var shipment = cart.GetFirstShipment();
             if (shipment.ShippingMethodId == default(Guid))
             {
@@ -47,7 +53,7 @@ namespace Vipps.Helpers
             {
                 shipment.ShippingAddress =
                     AddressHelper.UserDetailsAndShippingDetailsToOrderAddress(details?.UserDetails,
-                        details?.ShippingDetails, cart);
+                        details?.ShippingDetails, cart, orderGroupFactory);
             }
         }
     }
